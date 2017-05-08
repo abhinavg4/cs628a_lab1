@@ -1,4 +1,4 @@
-#Solution for lab1 of course cs628a
+# Solution for lab1 of course cs628a
 Assignment problem statement present in folder assignment
 
 ## Acknowledgments
