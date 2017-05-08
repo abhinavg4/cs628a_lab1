@@ -1,0 +1,74 @@
+#
+# [file:#lines]
+# desc
+#
+
+[http.c:65]
+http_read_line is reading from fd without doing any length check so it overflows array buf
+If we give any request of length greater than 4096 it'll overflow the return address of http_request_line
+
+    <if (http_read_line(fd, buf) < 0)>
+req =   "GET /a?"+"z"*4278+" HTTP1.0\r\n"+"\r\n"
+The above request corresponds to this bug
+Can this be prevented by canaries : yes
+
+[zookd.c:71]
+http_request_line is appending some strings like "REQUEST_METHOD=" etc in givin request(fd) and writing it in env.
+Hence if we give a large request of around 4080  buf of bug 1 won't overflow but env will
+
+    <if ((errmsg = http_request_line(fd, reqpath, sizeof(reqpath), env, &env_len)))>
+
+req =   "GET /a?"+"z"*4078+" HTTP1.0\r\n"+"\r\n";
+The above request will crash the server
+Can this be prevented by canaries : yes
+
+[zookfs.c:44]
+env_deserialize appends strings "GATEWAY_INTERFACE=CGI/1.1" and "REDIRECT_STATUS=200" to envp
+So if envp is already of size around 4096 appending these strings will lead to seg fault in 
+zookfs.c and child will crash
+    < env_deserialize(envp, len) >
+    
+req =   "GET /a?"+"z"*4020+" HTTP1.0\r\n"+"\r\n"
+The above request will crash the child
+Can this be prevented by canaries : yes
+
+[http.c:273]
+We concatenate name a buffer of 1024 to pn a buffer of 1024 and DOCUMENT_ROOT. So if name has
+length around 1024 then we'll overflow handler. Also if the file is not present on the server
+we won't go in if and hence we can take control of the server.
+
+    <strcat(pn, name)>
+    
+req =   "GET /aa"+"z"*1020+" HTTP1.0\r\n"+"\r\n" 
+This will exploit the above bug
+Can this be prevented by canaries : no as we'll call handler before returning from function
+
+[http.c:121]
+In this method we read header into buf.However no length checking is done.
+So if headers have length more than 4096 buf will overflow and change the return address
+
+    <http_read_line(fd, buf) < 0>
+
+req =   "GET /aa"+" HTTP1.0\r\n"+"host: "+"a"*4150+"\r\n"
+This will exploit this bug
+Can this be prevented by canaries : yes
+
+[http.c:35]
+This bug is personally my favourite due to it's short length
+We have a blocking read call and hence if we give not '\n' terminated request, The server will
+crash and we'll have a DOS attack. This attack can be triggered by http_request_line or http_request_header
+    <int cc = read(fd, &buf[i], 1)>
+
+req = "G" 
+Can this be prevented by canaries : no as it's a blocking call
+This will exploit this bug
+
+[http.c:303]
+Here we are concatenating pn and "PATH_INFO" without any error check and hence this may overflow
+
+    <sprintf(buf, "%s%s", pn, getenv("PATH_INFO"))>
+
+req =   "GET /index.html/"+"a"*1250+" HTTP1.0\r\n\r\n"
+This request will exploit it
+Can this be prevented by canaries : yes
+# meny more come here

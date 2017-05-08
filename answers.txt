@@ -1,0 +1,57 @@
+## Place your answers here.
+exploit-2a.py:
+
+In this exploit. I'm exploiting bug 1 as mentioned in bugs.txt. In http_request_line i'm overwriting the return address of the function
+Server will crash when we'll return from http_request_line
+
+exploit-2b.py:
+
+In this we will exploit bug 4 of bugs.txt. We'll overwrite the handler which then can be used to take control flow of the program.
+When we call handler it'll crash
+
+We can exploit bugs 1,2,4,5,7 in the similar manner as exploit-3.py
+rest 3,6 can't be exploited in this manner as 6 overwrites a fixed address and 3 is blocking call
+
+---------------------------------------------------
+lab 2:
+
+Q4.
+We can exploit bugs 1,2,4,5,7 in the similar manner as these 2 bugs
+We can't exploit bugs 3,6 as 6 is a blocking call and 3 overwrites a fixed address.
+
+Q5.
+Directory Traversal Attack
+The server is allowing us to access anyfile in it's system without any restriction.
+So we can access important files of the system like /etc/passwd by using following URI.
+
+req = "GET /../../../etc/passwd HTTP1.01\r\n"+"\r\n"
+
+Through this attack hacker can access any file accesible to httpd user
+We can prevent this attack by running server in a VM or checking for request URI not to have characters like ..
+
+DOS1
+We have a blocking read call. If we give a non \n terminated string , the server will hang
+and We'll have a DOS. Below request does this for us
+
+req="G"
+
+In this attacker can only hang the server
+We can prevent this by making fd non blocking
+
+DOS2
+We can use same logic as in DOS1 in headers and make many concurrent request to the server 
+Ultimately it's RAM will get full and fork will give error AND we'll have a DOS.
+Below request will do our work
+req = "GET / HTTP1.01\r\n" + "HOST: \r"
+
+To sent multiple such request use the below script alos present in abhi.sh
+
+for i in {1..50000}
+do
+        python exploit-template.py localhost 8080 &
+done
+
+In this attacker can only hang the server
+We can prevent this by making fd non blocking
+
+
